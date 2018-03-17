@@ -15,6 +15,7 @@ struct arm_state {
 
 int add_s(int, int);
 int mov_s(int, int);
+int sub_s(int, int);
 
 void arm_state_init(struct arm_state *, unsigned int *, unsigned int,
                     unsigned int, unsigned int, unsigned int);
@@ -27,18 +28,25 @@ bool is_mov(unsigned int);
 void armemu_mov(struct arm_state *);
 bool is_add(unsigned int);
 void armemu_add(struct arm_state *);
+bool is_sub(unsigned int);
+void armemu_sub(struct arm_state *);
 
 int main(int argc, char **argv) {
     struct arm_state as;
     unsigned int result;
+
+    printf("mov_s(1, 2):\n");
+    arm_state_init(&as, (unsigned int *) mov_s, 1, 2, 0, 0);
+    result = armemu(&as);
+    printf("r0 = %d\n", result);
 
     printf("add_s(1, 2):\n");
     arm_state_init(&as, (unsigned int *) add_s, 1, 2, 0, 0);
     result = armemu(&as);
     printf("r0 = %d\n", result);
 
-    printf("mov_s(1, 2):\n");
-    arm_state_init(&as, (unsigned int *) mov_s, 1, 2, 0, 0);
+    printf("sub_s(5, 2):\n");
+    arm_state_init(&as, (unsigned int *) sub_s, 5, 2, 0, 0);
     result = armemu(&as);
     printf("r0 = %d\n", result);
     
@@ -91,14 +99,17 @@ void armemu_one(struct arm_state *as) {
     iw = *((unsigned int *) as->regs[PC]);
     printf("iw = %x\n", iw);
 
-    if (is_bx(iw)) {
-        armemu_bx(as);
+    if (is_mov(iw)) {
+        armemu_mov(as);
     }
     else if (is_add(iw)) {
         armemu_add(as);
     }
-    else if (is_mov(iw)) {
-        armemu_mov(as);
+    else if (is_sub(iw)) {
+        armemu_sub(as);
+    }
+    else if (is_bx(iw)) {
+        armemu_bx(as);
     }
 }
 
@@ -132,11 +143,19 @@ bool is_mov(unsigned int iw) {
 
 void armemu_mov(struct arm_state *as) {
     unsigned int iw;
+    unsigned imm;
     unsigned int rd, rm;
 
     iw = *((unsigned int *) as->regs[PC]);
+    imm = (iw >> 25) & 0b1;
     rd = (iw >> 12) & 0xF;
-    rm = iw & 0xF;
+
+    if (imm == 0) {
+        rm = iw & 0xF;
+    }
+    else {
+        rm = iw & 0xFF;
+    }
 
     as->regs[rd] = as->regs[rm];
 
@@ -157,15 +176,57 @@ bool is_add(unsigned int iw) {
 
 void armemu_add(struct arm_state *as) {
     unsigned int iw;
+    unsigned int imm;
     unsigned int rd, rn, rm;
 
     iw = *((unsigned int *) as->regs[PC]);
+    imm = (iw >> 25) & 0b1;
     rd = (iw >> 12) & 0xF;
     rn = (iw >> 16) & 0xF;
-    rm = iw & 0xF;
 
-    as->regs[rd] = as->regs[rn] + as->regs[rm];
+    if (imm == 0) {
+        rm = iw & 0xF;
+        as->regs[rd] = as->regs[rn] + as->regs[rm];
+    }
+    else {
+        imm = iw & 0xFF;
+        as->regs[rd] = as->regs[rn] + imm;
+    }
 
+    if (rd != PC) {
+        as->regs[PC] += 4;
+    }
+}
+
+bool is_sub(unsigned int iw) {
+    unsigned int op;
+    unsigned int opcode;
+
+    op = (iw >> 26) & 0b11;
+    opcode = (iw >> 21) & 0xF;
+
+    return (op == 0) && (opcode == 0b0010);
+}
+
+void armemu_sub(struct arm_state *as) {
+    unsigned int iw;
+    unsigned int imm;
+    unsigned int rd, rn, rm;
+
+    iw = *((unsigned int *) as->regs[PC]);
+    imm = (iw >> 25) & 0b1;
+    rd = (iw >> 12) & 0xF;
+    rn = (iw >> 16) & 0xF;
+
+    if (imm == 0) {
+        rm = iw & 0xF;
+        as->regs[rd] = as->regs[rn] - as->regs[rm];
+    }
+    else {
+        imm = iw & 0xFF;
+        as->regs[rd] = as->regs[rn] - imm;
+    }
+    
     if (rd != PC) {
         as->regs[PC] += 4;
     }
