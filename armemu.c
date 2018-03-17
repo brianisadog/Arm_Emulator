@@ -30,6 +30,8 @@ bool is_add(unsigned int);
 void armemu_add(struct arm_state *);
 bool is_sub(unsigned int);
 void armemu_sub(struct arm_state *);
+bool is_cmp(unsigned int);
+void armemu_cmp(struct arm_state *);
 
 int main(int argc, char **argv) {
     struct arm_state as;
@@ -227,6 +229,49 @@ void armemu_sub(struct arm_state *as) {
         as->regs[rd] = as->regs[rn] - imm;
     }
     
+    if (rd != PC) {
+        as->regs[PC] += 4;
+    }
+}
+
+bool is_cmp(unsigned int iw) {
+    unsigned int op;
+    unsigned int opcode;
+    unsigned int con;
+
+    op = (iw >> 26) & 0b11;
+    opcode = (iw >> 21) & 0xF;
+    con = (iw >> 20) & 0b1;
+
+    return (op == 0) && (opcode == 0b1010) && (con == 0b1);
+}
+
+void armemu_cmp(struct arm_state *as) {
+    unsigned int iw;
+    unsigned int imm;
+    unsigned int rd, rm;
+
+    iw = *((unsigned int *) as->regs[PC]);
+    imm = (iw >> 25) & 0b1;
+    rd = (iw >> 12) & 0xF;
+
+    as->cpsr = 0b1;
+    
+    if (imm == 0) {
+        rm = iw & 0xF;
+
+        if (as->regs[rd] == as->regs[rm]) {
+            as->cpsr = 0;
+        }
+    }
+    else {
+        imm = iw & 0xFF;
+
+        if (as->regs[rd] == imm) {
+            as->cpsr = 0;
+        }
+    }
+
     if (rd != PC) {
         as->regs[PC] += 4;
     }
