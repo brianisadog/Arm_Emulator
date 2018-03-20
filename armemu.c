@@ -22,16 +22,29 @@ void arm_state_init(struct arm_state *, unsigned int *, unsigned int,
 void arm_state_print(struct arm_state *);
 unsigned int armemu(struct arm_state *);
 void armemu_one(struct arm_state *);
-bool is_bx(unsigned int);
-void armemu_bx(struct arm_state *);
+
 bool is_mov(unsigned int);
-void armemu_mov(struct arm_state *);
 bool is_add(unsigned int);
-void armemu_add(struct arm_state *);
 bool is_sub(unsigned int);
-void armemu_sub(struct arm_state *);
 bool is_cmp(unsigned int);
+bool is_b(unsigned int);
+bool is_bl(unsigned int);
+bool is_bx(unsigned int);
+bool is_str(unsigned int);
+bool is_ldr(unsigned int);
+bool is_strb(unsigned int);
+bool is_ldrb(unsigned int);
+bool is_eq(unsigned int);
+bool is_ne(unsigned int);
+bool is_le(unsigned int);
+bool is_gt(unsigned int);
+
+void armemu_bx(struct arm_state *);
+void armemu_mov(struct arm_state *);
+void armemu_add(struct arm_state *);
+void armemu_sub(struct arm_state *);
 void armemu_cmp(struct arm_state *);
+void armemu_str(struct arm_state *);
 
 int main(int argc, char **argv) {
     struct arm_state as;
@@ -113,24 +126,6 @@ void armemu_one(struct arm_state *as) {
     else if (is_bx(iw)) {
         armemu_bx(as);
     }
-}
-
-bool is_bx(unsigned int iw) {
-    unsigned int bx_bin_code;
-
-    bx_bin_code = (iw >> 4) & 0x00FFFFFF;
-
-    return (bx_bin_code == 0b000100101111111111110001);
-}
-
-void armemu_bx(struct arm_state *as) {
-    unsigned int iw;
-    unsigned int rn;
-
-    iw = *((unsigned int *) as->regs[PC]);
-    rn = iw & 0b1111;
-
-    as->regs[PC] = as->regs[rn];
 }
 
 bool is_mov(unsigned int iw) {
@@ -275,4 +270,143 @@ void armemu_cmp(struct arm_state *as) {
     if (rd != PC) {
         as->regs[PC] += 4;
     }
+}
+
+bool is_b(unsigned int iw) {
+    unsigned int op;
+    unsigned int func;
+
+    op = (iw >> 25) & 0b111;
+    func = (iw >> 24) & 0b1;
+
+    return (op == 0b101) && (func == 0b1);
+}
+
+bool is_bl(unsigned int iw) {
+    unsigned int op;
+    unsigned int func;
+
+    op = (iw >> 25) & 0b111;
+    func = (iw >> 24) & 0b1;
+
+    return (op == 0b101) && (func == 0);
+}
+
+bool is_bx(unsigned int iw) {
+    unsigned int bx_bin_code;
+
+    bx_bin_code = (iw >> 4) & 0xFFFFFF;
+
+    return (bx_bin_code == 0b000100101111111111110001);
+}
+
+void armemu_bx(struct arm_state *as) {
+    unsigned int iw;
+    unsigned int rn;
+
+    iw = *((unsigned int *) as->regs[PC]);
+    rn = iw & 0xF;
+
+    as->regs[PC] = as->regs[rn];
+}
+
+bool is_str(unsigned int iw) {
+    unsigned int op;
+    unsigned int load;
+    unsigned int byte;
+
+    op = (iw >> 26) & 0b11;
+    load = (iw >> 20) & 0b1;
+    byte = (iw >> 22) & 0b1;
+
+    return (op == 0b01) && (load == 0) && (byte == 0);
+}
+
+void armemu_str(struct arm_state *as) {
+    unsigned int iw;
+    unsigned int i, p, u, w;
+    unsigned int rn, rd, imm;
+
+    iw = *((unsigned int *) as->regs[PC]);
+    i = (iw >> 25) & 0b1;
+    p = (iw >> 24) & 0b1;
+    u = (iw >> 23) & 0b1;
+    w = (iw >> 21) & 0b1;
+    rn = (iw >> 16) & 0xF;
+    rd = (iw >> 12) & 0xF;
+
+    if (i == 0) {
+        imm = iw & 0xFFF;
+        as->regs[rd] = as->regs[rd]
+    }
+
+    as->regs[PC] = as->regs[rn];
+}
+
+bool is_ldr(unsigned int iw) {
+    unsigned int op;
+    unsigned int load;
+    unsigned int byte;
+
+    op = (iw >> 26) & 0b11;
+    load = (iw >> 20) & 0b1;
+    byte = (iw >> 22) & 0b1;
+
+    return (op == 0b01) && (load == 1) && (byte == 0);
+}
+
+bool is_strb(unsigned int iw) {
+    unsigned int op;
+    unsigned int load;
+    unsigned int byte;
+
+    op = (iw >> 26) & 0b11;
+    load = (iw >> 20) & 0b1;
+    byte = (iw >> 22) & 0b1;
+
+    return (op == 0b01) && (load == 0) && (byte == 1);
+}
+
+bool is_ldrb(unsigned int iw) {
+    unsigned int op;
+    unsigned int load;
+    unsigned int byte;
+
+    op = (iw >> 26) & 0b11;
+    load = (iw >> 20) & 0b1;
+    byte = (iw >> 22) & 0b1;
+
+    return (op == 0b01) && (load == 1) && (byte == 1);
+}
+
+bool is_eq(unsigned int iw) {
+    unsigned int cond;
+
+    cond = (iw >> 28) 0xF;
+
+    return (cond == 0);
+}
+
+bool is_ne(unsigned int iw) {
+    unsigned int cond;
+
+    cond = (iw >> 28) 0xF;
+
+    return (cond == 0b1);
+}
+
+bool is_le(unsigned int iw) {
+    unsigned int cond;
+
+    cond = (iw >> 28) 0xF;
+
+    return (cond == 0b1101);
+}
+
+bool is_gt(unsigned int iw) {
+    unsigned int cond;
+
+    cond = (iw >> 28) 0xF;
+
+    return (cond == 0b1100);
 }
