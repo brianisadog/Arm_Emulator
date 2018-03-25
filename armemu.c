@@ -16,12 +16,15 @@ struct arm_state {
 int add_s(int, int);
 int mov_s(int, int);
 int sub_s(int, int);
+int hit_five_s(int, int);
 
 void arm_state_init(struct arm_state *, unsigned int *, unsigned int,
                     unsigned int, unsigned int, unsigned int);
 void arm_state_print(struct arm_state *);
 unsigned int armemu(struct arm_state *);
 void armemu_one(struct arm_state *);
+unsigned int get_type(unsigned int);
+bool check_cond(struct arm_state *, unsigned int);
 
 bool is_mov(unsigned int);
 bool is_add(unsigned int);
@@ -109,23 +112,60 @@ unsigned int armemu(struct arm_state *as) {
 }
 
 void armemu_one(struct arm_state *as) {
-    unsigned int iw;
+    unsigned int iw, type;
+    bool exec;
 
     iw = *((unsigned int *) as->regs[PC]);
+    type = get_type(iw);
+    exec = check_cond(as, iw);
     printf("iw = %x\n", iw);
 
-    if (is_mov(iw)) {
-        armemu_mov(as);
+    if (exec) {
+        if (is_mov(iw)) {
+            armemu_mov(as);
+        }
+        else if (is_add(iw)) {
+            armemu_add(as);
+        }
+        else if (is_sub(iw)) {
+            armemu_sub(as);
+        }
+        else if (is_bx(iw)) {
+            armemu_bx(as);
+        }
     }
-    else if (is_add(iw)) {
-        armemu_add(as);
+}
+
+unsigned int get_type(unsigned int iw) {
+    unsigned int op;
+    
+    op = (iw >> 26) & 0b11;
+
+    return op;
+}
+
+bool check_cond(struct arm_state *as, unsigned int iw) {
+    unsigned int cond, cpsr, n, z, c, v;
+    bool exec = false;
+    
+    cond = (iw >> 28) & 0xF;
+    cpsr = as->cpsr;
+    n = cpsr >> 3;
+    z = (cpsr >> 2) & 0b1;
+    c = (cpsr >> 1) & 0b1;
+    v = cpsr & 0b1;
+
+    if (
+        cond == 0b1110 || //AL
+        cond == 0b0000 && z || //EQ
+        cond == 0b0001 && ~(z) || //NE
+        cond == 0b1100 && (~(z) && ~(n ^ v)) || //GT
+        cond == 0b1101 && (z || (n ^ v)) //LE
+        ) {
+        exec = true;
     }
-    else if (is_sub(iw)) {
-        armemu_sub(as);
-    }
-    else if (is_bx(iw)) {
-        armemu_bx(as);
-    }
+
+    return exec;
 }
 
 bool is_mov(unsigned int iw) {
@@ -337,7 +377,7 @@ void armemu_str(struct arm_state *as) {
 
     if (i == 0) {
         imm = iw & 0xFFF;
-        as->regs[rd] = as->regs[rd]
+        as->regs[rd] = as->regs[rd];
     }
 
     as->regs[PC] = as->regs[rn];
@@ -382,7 +422,7 @@ bool is_ldrb(unsigned int iw) {
 bool is_eq(unsigned int iw) {
     unsigned int cond;
 
-    cond = (iw >> 28) 0xF;
+    cond = (iw >> 28) & 0xF;
 
     return (cond == 0);
 }
@@ -390,7 +430,7 @@ bool is_eq(unsigned int iw) {
 bool is_ne(unsigned int iw) {
     unsigned int cond;
 
-    cond = (iw >> 28) 0xF;
+    cond = (iw >> 28) & 0xF;
 
     return (cond == 0b1);
 }
@@ -398,7 +438,7 @@ bool is_ne(unsigned int iw) {
 bool is_le(unsigned int iw) {
     unsigned int cond;
 
-    cond = (iw >> 28) 0xF;
+    cond = (iw >> 28) & 0xF;
 
     return (cond == 0b1101);
 }
@@ -406,7 +446,7 @@ bool is_le(unsigned int iw) {
 bool is_gt(unsigned int iw) {
     unsigned int cond;
 
-    cond = (iw >> 28) 0xF;
+    cond = (iw >> 28) & 0xF;
 
     return (cond == 0b1100);
 }

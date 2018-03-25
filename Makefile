@@ -1,6 +1,6 @@
 PROGS = armemu
 
-OBJS_ARMEMU = add_s.o mov_s.o sub_s.o cmp_s.o
+OBJS_ARMEMU = add_s.o mov_s.o sub_s.o cmp_s.o hit_five_s.o
 CFLAGS = -g
 
 %.o : %.s
