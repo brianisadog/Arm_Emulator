@@ -25,7 +25,9 @@ enum dp_func {
     dp_mov = 0b1101,
     dp_add = 0b0100,
     dp_sub = 0b0010,
-    dp_cmp = 0b1010
+    dp_cmp = 0b1010,
+    dp_mvn = 0b1111,
+    dp_cmn = 0b1011
 };
 
 struct arm_state {
@@ -34,10 +36,16 @@ struct arm_state {
     unsigned char stack[STACK_SIZE];
 };
 
-int add_s(int, int);
-int mov_s(int, int);
-int sub_s(int, int);
-int hit_five_s(int);
+int sum_array_s(int *, int);
+int find_max_s(int *, int);
+int fib_iter_s(int *, int);
+int fib_rec_s(int *, int);
+int find_str_s(char *, char *);
+void test_sum_array();
+void test_find_max();
+void test_fib_iter();
+void test_fib_rec();
+void test_find_str();
 
 void arm_state_init(struct arm_state *, unsigned int *, unsigned int,
                     unsigned int, unsigned int, unsigned int);
@@ -46,55 +54,87 @@ unsigned int armemu(struct arm_state *);
 void armemu_one(struct arm_state *);
 unsigned int get_type(unsigned int);
 bool check_cond(struct arm_state *, unsigned int);
-
+unsigned int mem_shift(unsigned int, unsigned int, unsigned int);
+bool is_bx(unsigned int);
 void armemu_dp(struct arm_state *, unsigned int);
 void armemu_mem(struct arm_state *, unsigned int);
 void armemu_brch(struct arm_state *, unsigned int);
-
-bool is_bx(unsigned int);
-bool is_str(unsigned int);
-bool is_ldr(unsigned int);
-bool is_strb(unsigned int);
-bool is_ldrb(unsigned int);
-
 void armemu_mov(struct arm_state *, unsigned int, unsigned int);
 void armemu_add(struct arm_state *, unsigned int, unsigned int, unsigned int);
 void armemu_sub(struct arm_state *, unsigned int, unsigned int, unsigned int);
 void armemu_cmp(struct arm_state *, unsigned int, unsigned int, unsigned int);
+void armemu_mvn(struct arm_state *, unsigned int, unsigned int);
+void armemu_cmn(struct arm_state *, unsigned int, unsigned int, unsigned int);
 void armemu_bx(struct arm_state *);
-void armemu_b(struct arm_state *, unsigned int);
-void armemu_str(struct arm_state *);
+void armemu_b(struct arm_state *, unsigned int, unsigned int);
+void armemu_str(struct arm_state *, unsigned int, unsigned int, unsigned int);
+void armemu_ldr(struct arm_state *, unsigned int, unsigned int, unsigned int, unsigned int);
 
 int main(int argc, char **argv) {
-    struct arm_state as;
-    unsigned int result;
-
-    printf("mov_s(1, 2):\n");
-    arm_state_init(&as, (unsigned int *) mov_s, 1, 2, 0, 0);
-    result = armemu(&as);
-    printf("r0 = %d\n", result);
-
-    printf("add_s(1, 2):\n");
-    arm_state_init(&as, (unsigned int *) add_s, 1, 2, 0, 0);
-    result = armemu(&as);
-    printf("r0 = %d\n", result);
-
-    printf("sub_s(5, 2):\n");
-    arm_state_init(&as, (unsigned int *) sub_s, 5, 2, 0, 0);
-    result = armemu(&as);
-    printf("r0 = %d\n", result);
-
-    printf("hit_five_s(1):\n");
-    arm_state_init(&as, (unsigned int *) hit_five_s, 1, 0, 0, 0);
-    result = armemu(&as);
-    printf("r0 = %d\n", result);
+    //test_sum_array();
+    //test_find_max();
+    //test_fib_iter();
+    //test_fib_rec();
+    test_find_str();
     
     return 0;
 }
 
-void arm_state_init(struct arm_state *as, unsigned int *func,
-                    unsigned int arg0, unsigned int arg1,
-                    unsigned int arg2, unsigned int arg3) {
+void test_sum_array() {
+    struct arm_state as;
+    unsigned int result;
+    int n = 4;
+    int array[4] = {1, 2, 3, 4};
+
+    arm_state_init(&as, (unsigned int *) sum_array_s, (unsigned int) array, n, 0, 0);
+    result = armemu(&as);
+    printf("sum_array_s({1, 2, 3, 4}, %d) = %d\n", n, result);
+}
+
+void test_find_max() {
+    struct arm_state as;
+    unsigned int result;
+    int n = 4;
+    int array[4] = {1, 4, 3, 2};
+
+    arm_state_init(&as, (unsigned int *) find_max_s, (unsigned int) array, n, 0, 0);
+    result = armemu(&as);
+    printf("find_max_s({1, 4, 3, 2}, %d) = %d\n", n, result);
+}
+
+void test_fib_iter() {
+    struct arm_state as;
+    unsigned int result;
+    int n = 20;
+
+    arm_state_init(&as, (unsigned int *) fib_iter_s, n, 0, 0, 0);
+    result = armemu(&as);
+    printf("fib_iter_s(%d) = %d\n", n, result);
+}
+
+void test_fib_rec() {
+    struct arm_state as;
+    unsigned int result;
+    int n = 20;
+
+    arm_state_init(&as, (unsigned int *) fib_rec_s, n, 0, 0, 0);
+    result = armemu(&as);
+    printf("fib_rec_s(%d) = %d\n", n, result);
+}
+
+void test_find_str() {
+    struct arm_state as;
+    unsigned int result;
+    char *s = "Computer Science is actually art!";
+    char *sub = "art";
+
+    arm_state_init(&as, (unsigned int *) find_str_s, (unsigned int) s, (unsigned int) sub, 0, 0);
+    result = armemu(&as);
+    printf("find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
+}
+
+void arm_state_init(struct arm_state *as, unsigned int *func, unsigned int reg0,
+                    unsigned int reg1, unsigned int reg2, unsigned int reg3) {
     int i;
 
     for (i = 0; i < REG_NUM; i++) {
@@ -106,10 +146,10 @@ void arm_state_init(struct arm_state *as, unsigned int *func,
         as->stack[i] = 0;
     }
 
-    as->regs[0] = arg0;
-    as->regs[1] = arg1;
-    as->regs[2] = arg2;
-    as->regs[3] = arg3;
+    as->regs[0] = reg0;
+    as->regs[1] = reg1;
+    as->regs[2] = reg2;
+    as->regs[3] = reg3;
     as->regs[SP] = (unsigned int) &as->stack[STACK_SIZE];
     as->regs[LR] = 0;
     as->regs[PC] = (unsigned int) func;
@@ -139,7 +179,6 @@ void armemu_one(struct arm_state *as) {
     iw = *((unsigned int *) as->regs[PC]);
     type = get_type(iw);
     exec = check_cond(as, iw);
-    printf("iw = %x\n", iw);
 
     if (exec) {
         switch (type) {
@@ -193,6 +232,14 @@ bool check_cond(struct arm_state *as, unsigned int iw) {
     return exec;
 }
 
+unsigned int mem_shift(unsigned int value, unsigned int sh, unsigned int shamt5) {
+    if (sh == 0) {
+        value <<= shamt5;
+    }
+
+    return value;
+}
+
 void armemu_dp(struct arm_state *as, unsigned int iw) {
     unsigned int opcode;
     unsigned int i, set, rn, rd, rm, imm8, src2;
@@ -229,13 +276,51 @@ void armemu_dp(struct arm_state *as, unsigned int iw) {
             break;
         case dp_cmp:
             armemu_cmp(as, set, rn, src2);
+            break;
+        case dp_mvn:
+            armemu_mvn(as, rd, src2);
+            break;
+        case dp_cmn:
+            armemu_cmn(as, set, rn, src2);
     }
 
     as->regs[PC] += 4;
 }
 
 void armemu_mem(struct arm_state *as, unsigned int iw) {
-    printf("mem!\n");
+    unsigned int i, b, l;
+    unsigned int rn, rd, rm, sh, shamt5, imm12, src2;
+
+    i = (iw >> 25) & 0b1;
+    b = (iw >> 22) & 0b1;
+    l = (iw >> 20) & 0b1;
+    rn = (iw >> 16) & 0xF;
+    rd = (iw >> 12) & 0xF;
+
+    if (i == 0) {
+        imm12 = iw & 0xFFF;
+        if (((imm12 >> 11) & 0b1) == 0b1) {
+            src2 = (imm12 | 0xFFFFF000);
+        }
+        else {
+            src2 = imm12;
+        }
+    }
+    else {
+        rm = iw & 0xF;
+        sh = (iw >> 5) & 0b11;
+        shamt5 = (iw >> 7) & 0b11111;
+        src2 = mem_shift(as->regs[rm], sh, shamt5);
+    }
+
+    if (l == 0b1) {
+        armemu_ldr(as, b, rn, rd, src2);
+    }
+    else {
+        armemu_str(as, rn, rd, src2);
+    }
+
+    as->regs[PC] += 4;
 }
 
 void armemu_brch(struct arm_state *as, unsigned int iw) {
@@ -247,10 +332,7 @@ void armemu_brch(struct arm_state *as, unsigned int iw) {
     else {
         link = (iw >> 24) & 0b1;
         imm24 = iw & 0xFFFFFF;
-        
-        if (link == 0) {
-            armemu_b(as, imm24);
-        }
+        armemu_b(as, imm24, link);
     }
 }
 
@@ -267,10 +349,37 @@ void armemu_sub(struct arm_state *as, unsigned int rd, unsigned int rn, unsigned
 }
 
 void armemu_cmp(struct arm_state *as, unsigned int set, unsigned int rn, unsigned int src2) {
-    unsigned int n, z, v, msb_rn, msb_src2, cpsr;
+    unsigned int n, z, v;
+    unsigned int msb_rn, msb_src2, cpsr;
     
     rn = as->regs[rn];
     src2 = (src2 ^ 0xFFFFFFFF) + 0b1;
+    n = ((rn + src2) >> 31) & 0b1;
+    z = (rn + src2 == 0) ? 1 : 0;
+    msb_rn = (rn >> 31) & 0b1;
+    msb_src2 = (src2 >> 31) & 0b1;
+    if (msb_rn != msb_src2) {
+        v = 0;
+    }
+    else {
+        v = (n != msb_rn) ? 1 : 0;
+    }
+
+    if (set == 0b1) {
+        cpsr = (n << 3) + (z << 2) + v;
+        as->cpsr = cpsr;
+    }
+}
+
+void armemu_mvn(struct arm_state *as, unsigned int rd, unsigned int src2) {
+    as->regs[rd] = ~(src2);
+}
+
+void armemu_cmn(struct arm_state *as, unsigned int set, unsigned int rn, unsigned int src2) {
+    unsigned int n, z, v;
+    unsigned int msb_rn, msb_src2, cpsr;
+    
+    rn = as->regs[rn];
     n = ((rn + src2) >> 31) & 0b1;
     z = (rn + src2 == 0) ? 1 : 0;
     msb_rn = (rn >> 31) & 0b1;
@@ -306,85 +415,39 @@ void armemu_bx(struct arm_state *as) {
     as->regs[PC] = as->regs[rn];
 }
 
-void armemu_b(struct arm_state * as, unsigned int imm24) {
-    unsigned int negative, offset;
+void armemu_b(struct arm_state *as, unsigned int imm24, unsigned int link) {
+    unsigned int msb, offset;
 
-    negative = (imm24 >> 23) & 0b1;
-
-    if (negative == 0b1) {
+    if (link == 0b1) {
+        as->regs[LR] = as->regs[PC] + 4;
+    }
+    
+    msb = (imm24 >> 23) & 0b1;
+    if (msb == 0b1) {
         imm24 = (imm24 | 0xFF000000);
     }
 
     offset = (imm24 << 2) + 8;
-
     as->regs[PC] += offset;
 }
 
-bool is_str(unsigned int iw) {
-    unsigned int op;
-    unsigned int load;
-    unsigned int byte;
+void armemu_str(struct arm_state *as, unsigned int rn, unsigned int rd, unsigned int src2) {
+    unsigned int *address;
 
-    op = (iw >> 26) & 0b11;
-    load = (iw >> 20) & 0b1;
-    byte = (iw >> 22) & 0b1;
-
-    return (op == 0b01) && (load == 0) && (byte == 0);
+    address = (unsigned int *) (as->regs[rn] + src2);
+    *address = as->regs[rd];
 }
 
-void armemu_str(struct arm_state *as) {
-    unsigned int iw;
-    unsigned int i, p, u, w;
-    unsigned int rn, rd, imm;
+void armemu_ldr(struct arm_state *as, unsigned int b,
+                unsigned int rn, unsigned int rd, unsigned int src2) {
+    unsigned int *src;
 
-    iw = *((unsigned int *) as->regs[PC]);
-    i = (iw >> 25) & 0b1;
-    p = (iw >> 24) & 0b1;
-    u = (iw >> 23) & 0b1;
-    w = (iw >> 21) & 0b1;
-    rn = (iw >> 16) & 0xF;
-    rd = (iw >> 12) & 0xF;
+    src = (unsigned int *) (as->regs[rn] + src2);
 
-    if (i == 0) {
-        imm = iw & 0xFFF;
-        as->regs[rd] = as->regs[rd];
+    if (b == 0b1) {
+        as->regs[rd] = *src & 0xFF;
     }
-
-    as->regs[PC] = as->regs[rn];
-}
-
-bool is_ldr(unsigned int iw) {
-    unsigned int op;
-    unsigned int load;
-    unsigned int byte;
-
-    op = (iw >> 26) & 0b11;
-    load = (iw >> 20) & 0b1;
-    byte = (iw >> 22) & 0b1;
-
-    return (op == 0b01) && (load == 1) && (byte == 0);
-}
-
-bool is_strb(unsigned int iw) {
-    unsigned int op;
-    unsigned int load;
-    unsigned int byte;
-
-    op = (iw >> 26) & 0b11;
-    load = (iw >> 20) & 0b1;
-    byte = (iw >> 22) & 0b1;
-
-    return (op == 0b01) && (load == 0) && (byte == 1);
-}
-
-bool is_ldrb(unsigned int iw) {
-    unsigned int op;
-    unsigned int load;
-    unsigned int byte;
-
-    op = (iw >> 26) & 0b11;
-    load = (iw >> 20) & 0b1;
-    byte = (iw >> 22) & 0b1;
-
-    return (op == 0b01) && (load == 1) && (byte == 1);
+    else {
+        as->regs[rd] = *src;
+    }
 }
