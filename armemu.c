@@ -36,6 +36,16 @@ struct arm_state {
     unsigned char stack[STACK_SIZE];
 };
 
+struct instruction_count {
+    int dp_count;
+    int mem_count;
+    int brch_count;
+    int brch_taken;
+    int brch_not_taken;
+    int regs_read[REG_NUM];
+    int regs_write[REG_NUM];
+};
+
 int sum_array_s(int *, int);
 int find_max_s(int *, int);
 int fib_iter_s(int *, int);
@@ -49,11 +59,13 @@ void test_find_str();
 
 void arm_state_init(struct arm_state *, unsigned int *, unsigned int,
                     unsigned int, unsigned int, unsigned int);
+void instruction_count_init(struct instruction_count *);
 void arm_state_print(struct arm_state *);
-unsigned int armemu(struct arm_state *);
-void armemu_one(struct arm_state *);
+unsigned int armemu(struct arm_state *, struct instruction_count *);
+void armemu_one(struct arm_state *, struct instruction_count *);
 unsigned int get_type(unsigned int);
 bool check_cond(struct arm_state *, unsigned int);
+void update_instruction_count(struct instruction_count *, unsigned int, bool);
 unsigned int mem_shift(unsigned int, unsigned int, unsigned int);
 bool is_bx(unsigned int);
 void armemu_dp(struct arm_state *, unsigned int);
@@ -71,10 +83,10 @@ void armemu_str(struct arm_state *, unsigned int, unsigned int, unsigned int);
 void armemu_ldr(struct arm_state *, unsigned int, unsigned int, unsigned int, unsigned int);
 
 int main(int argc, char **argv) {
-    //test_sum_array();
-    //test_find_max();
-    //test_fib_iter();
-    //test_fib_rec();
+    test_sum_array();
+    test_find_max();
+    test_fib_iter();
+    test_fib_rec();
     test_find_str();
     
     return 0;
@@ -82,54 +94,64 @@ int main(int argc, char **argv) {
 
 void test_sum_array() {
     struct arm_state as;
+    struct instruction_count ic;
     unsigned int result;
     int n = 4;
     int array[4] = {1, 2, 3, 4};
 
     arm_state_init(&as, (unsigned int *) sum_array_s, (unsigned int) array, n, 0, 0);
-    result = armemu(&as);
+    instruction_count_init(&ic);
+    result = armemu(&as, &ic);
     printf("sum_array_s({1, 2, 3, 4}, %d) = %d\n", n, result);
 }
 
 void test_find_max() {
     struct arm_state as;
+    struct instruction_count ic;
     unsigned int result;
     int n = 4;
     int array[4] = {1, 4, 3, 2};
 
     arm_state_init(&as, (unsigned int *) find_max_s, (unsigned int) array, n, 0, 0);
-    result = armemu(&as);
+    instruction_count_init(&ic);
+    result = armemu(&as, &ic);
     printf("find_max_s({1, 4, 3, 2}, %d) = %d\n", n, result);
 }
 
 void test_fib_iter() {
     struct arm_state as;
+    struct instruction_count ic;
     unsigned int result;
     int n = 20;
 
     arm_state_init(&as, (unsigned int *) fib_iter_s, n, 0, 0, 0);
-    result = armemu(&as);
+    instruction_count_init(&ic);
+    result = armemu(&as, &ic);
     printf("fib_iter_s(%d) = %d\n", n, result);
 }
 
 void test_fib_rec() {
     struct arm_state as;
+    struct instruction_count ic;
     unsigned int result;
     int n = 20;
 
     arm_state_init(&as, (unsigned int *) fib_rec_s, n, 0, 0, 0);
-    result = armemu(&as);
+    instruction_count_init(&ic);
+    result = armemu(&as, &ic);
     printf("fib_rec_s(%d) = %d\n", n, result);
 }
 
 void test_find_str() {
     struct arm_state as;
+    struct instruction_count ic;
     unsigned int result;
     char *s = "Computer Science is actually art!";
     char *sub = "art";
 
     arm_state_init(&as, (unsigned int *) find_str_s, (unsigned int) s, (unsigned int) sub, 0, 0);
-    result = armemu(&as);
+    instruction_count_init(&ic);
+    result = armemu(&as, &ic);
     printf("find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
 }
 
@@ -155,6 +177,21 @@ void arm_state_init(struct arm_state *as, unsigned int *func, unsigned int reg0,
     as->regs[PC] = (unsigned int) func;
 }
 
+void instruction_count_init(struct instruction_count *ic) {
+    int i;
+
+    ic->dp_count = 0;
+    ic->mem_count = 0;
+    ic->brch_count = 0;
+    ic->brch_taken = 0;
+    ic->brch_not_taken = 0;
+
+    for (i = 0; i < REG_NUM; i++) {
+        ic->regs_read[i] = 0;
+        ic->regs_write[i] = 0;
+    }
+}
+
 void arm_state_print(struct arm_state *as) {
     int i;
 
@@ -164,21 +201,22 @@ void arm_state_print(struct arm_state *as) {
     printf("cpsr = %x\n", as->cpsr);
 }
 
-unsigned int armemu(struct arm_state *as) {
+unsigned int armemu(struct arm_state *as, struct instruction_count *ic) {
     while (as->regs[PC] != 0) {
-        armemu_one(as);
+        armemu_one(as, ic);
     }
 
     return as->regs[0];
 }
 
-void armemu_one(struct arm_state *as) {
+void armemu_one(struct arm_state *as, struct instruction_count *ic) {
     unsigned int iw, type;
     bool exec;
 
     iw = *((unsigned int *) as->regs[PC]);
     type = get_type(iw);
     exec = check_cond(as, iw);
+    update_instruction_count(ic, type, exec);
 
     if (exec) {
         switch (type) {
@@ -230,6 +268,25 @@ bool check_cond(struct arm_state *as, unsigned int iw) {
     }
 
     return exec;
+}
+
+void update_instruction_count(struct instruction_count *ic, unsigned int type, bool exec) {
+    if (type == op_dp) {
+        ic->dp_count += 1;
+    }
+    else if (type == op_mem) {
+        ic->mem_count += 1;
+    }
+    else if (type == op_brch) {
+        ic->brch_count += 1;
+
+        if (exec) {
+            ic->brch_taken += 1;
+        }
+        else {
+            ic->brch_not_taken += 1;
+        }
+    }
 }
 
 unsigned int mem_shift(unsigned int value, unsigned int sh, unsigned int shamt5) {
