@@ -195,7 +195,7 @@ void test_fib_rec() {
     unsigned int result;
     int i, n;
 
-    n =20;
+    n = 20;
     for(i = 1; i <= n; i++) {
         result = run(&as, &ic, (unsigned int *) fib_rec_s, i, 0, 0, 0);
         printf("fib_rec_s(%d) = %d\n", i, result);
