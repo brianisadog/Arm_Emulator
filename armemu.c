@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdbool.h>
+#include<time.h>
 
 #define REG_NUM 16
 #define STACK_SIZE 1024
@@ -44,6 +45,8 @@ struct instruction_count {
     int brch_not_taken;
     int regs_read[REG_NUM];
     int regs_write[REG_NUM];
+    struct timespec start;
+    struct timespec finish;
 };
 
 int sum_array_s(int *, int);
@@ -66,21 +69,22 @@ void armemu_one(struct arm_state *, struct instruction_count *);
 unsigned int get_type(unsigned int);
 bool check_cond(struct arm_state *, unsigned int);
 void update_instruction_count(struct instruction_count *, unsigned int, bool);
+void update_regs_count(struct instruction_count *, unsigned int, unsigned int);
 unsigned int mem_shift(unsigned int, unsigned int, unsigned int);
 bool is_bx(unsigned int);
-void armemu_dp(struct arm_state *, unsigned int);
-void armemu_mem(struct arm_state *, unsigned int);
-void armemu_brch(struct arm_state *, unsigned int);
-void armemu_mov(struct arm_state *, unsigned int, unsigned int);
-void armemu_add(struct arm_state *, unsigned int, unsigned int, unsigned int);
-void armemu_sub(struct arm_state *, unsigned int, unsigned int, unsigned int);
-void armemu_cmp(struct arm_state *, unsigned int, unsigned int, unsigned int);
-void armemu_mvn(struct arm_state *, unsigned int, unsigned int);
-void armemu_cmn(struct arm_state *, unsigned int, unsigned int, unsigned int);
-void armemu_bx(struct arm_state *);
-void armemu_b(struct arm_state *, unsigned int, unsigned int);
-void armemu_str(struct arm_state *, unsigned int, unsigned int, unsigned int);
-void armemu_ldr(struct arm_state *, unsigned int, unsigned int, unsigned int, unsigned int);
+void armemu_dp(struct arm_state *, struct instruction_count *, unsigned int);
+void armemu_mem(struct arm_state *, struct instruction_count *, unsigned int);
+void armemu_brch(struct arm_state *, struct instruction_count *, unsigned int);
+void armemu_mov(struct arm_state *, struct instruction_count *, unsigned int, unsigned int);
+void armemu_add(struct arm_state *, struct instruction_count *, unsigned int, unsigned int, unsigned int);
+void armemu_sub(struct arm_state *, struct instruction_count *, unsigned int, unsigned int, unsigned int);
+void armemu_cmp(struct arm_state *, struct instruction_count *, unsigned int, unsigned int, unsigned int);
+void armemu_mvn(struct arm_state *, struct instruction_count *, unsigned int, unsigned int);
+void armemu_cmn(struct arm_state *, struct instruction_count *, unsigned int, unsigned int, unsigned int);
+void armemu_bx(struct arm_state *, struct instruction_count *, unsigned int);
+void armemu_b(struct arm_state *, struct instruction_count *, unsigned int, unsigned int);
+void armemu_str(struct arm_state *, struct instruction_count *, unsigned int, unsigned int, unsigned int);
+void armemu_ldr(struct arm_state *, struct instruction_count *, unsigned int, unsigned int, unsigned int, unsigned int);
 
 int main(int argc, char **argv) {
     test_sum_array();
@@ -102,6 +106,7 @@ void test_sum_array() {
     arm_state_init(&as, (unsigned int *) sum_array_s, (unsigned int) array, n, 0, 0);
     instruction_count_init(&ic);
     result = armemu(&as, &ic);
+    clock_gettime(CLOCK_REALTIME, &ic.finish);
     printf("sum_array_s({1, 2, 3, 4}, %d) = %d\n", n, result);
 }
 
@@ -115,6 +120,7 @@ void test_find_max() {
     arm_state_init(&as, (unsigned int *) find_max_s, (unsigned int) array, n, 0, 0);
     instruction_count_init(&ic);
     result = armemu(&as, &ic);
+    clock_gettime(CLOCK_REALTIME, &ic.finish);
     printf("find_max_s({1, 4, 3, 2}, %d) = %d\n", n, result);
 }
 
@@ -127,6 +133,7 @@ void test_fib_iter() {
     arm_state_init(&as, (unsigned int *) fib_iter_s, n, 0, 0, 0);
     instruction_count_init(&ic);
     result = armemu(&as, &ic);
+    clock_gettime(CLOCK_REALTIME, &ic.finish);
     printf("fib_iter_s(%d) = %d\n", n, result);
 }
 
@@ -139,6 +146,7 @@ void test_fib_rec() {
     arm_state_init(&as, (unsigned int *) fib_rec_s, n, 0, 0, 0);
     instruction_count_init(&ic);
     result = armemu(&as, &ic);
+    clock_gettime(CLOCK_REALTIME, &ic.finish);
     printf("fib_rec_s(%d) = %d\n", n, result);
 }
 
@@ -152,6 +160,7 @@ void test_find_str() {
     arm_state_init(&as, (unsigned int *) find_str_s, (unsigned int) s, (unsigned int) sub, 0, 0);
     instruction_count_init(&ic);
     result = armemu(&as, &ic);
+    clock_gettime(CLOCK_REALTIME, &ic.finish);
     printf("find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
 }
 
@@ -190,6 +199,11 @@ void instruction_count_init(struct instruction_count *ic) {
         ic->regs_read[i] = 0;
         ic->regs_write[i] = 0;
     }
+
+    ic->regs_read[PC] += 1;
+    ic->regs_write[PC] += 1; //every test contains with read/write PC
+
+    clock_gettime(CLOCK_REALTIME, &ic->start);
 }
 
 void arm_state_print(struct arm_state *as) {
@@ -221,13 +235,13 @@ void armemu_one(struct arm_state *as, struct instruction_count *ic) {
     if (exec) {
         switch (type) {
             case op_dp:
-                armemu_dp(as, iw);
+                armemu_dp(as, ic, iw);
                 break;
             case op_mem:
-                armemu_mem(as, iw);
+                armemu_mem(as, ic, iw);
                 break;
             case op_brch:
-                armemu_brch(as, iw);
+                armemu_brch(as, ic, iw);
         }
     }
     else {
@@ -289,6 +303,15 @@ void update_instruction_count(struct instruction_count *ic, unsigned int type, b
     }
 }
 
+void update_regs_count(struct instruction_count *ic, unsigned int type, unsigned int num) {
+    if (type == 0) {
+        ic->regs_read[num] += 1;
+    }
+    else {
+        ic->regs_write[num] += 1;
+    }
+}
+
 unsigned int mem_shift(unsigned int value, unsigned int sh, unsigned int shamt5) {
     if (sh == 0) {
         value <<= shamt5;
@@ -297,7 +320,7 @@ unsigned int mem_shift(unsigned int value, unsigned int sh, unsigned int shamt5)
     return value;
 }
 
-void armemu_dp(struct arm_state *as, unsigned int iw) {
+void armemu_dp(struct arm_state *as, struct instruction_count *ic, unsigned int iw) {
     unsigned int opcode;
     unsigned int i, set, rn, rd, rm, imm8, src2;
     
@@ -310,6 +333,7 @@ void armemu_dp(struct arm_state *as, unsigned int iw) {
     if (i == 0) {
         rm = iw & 0xF;
         src2 = as->regs[rm];
+        update_regs_count(ic, 0, rm);
     }
     else {
         imm8 = iw & 0xFF;
@@ -323,28 +347,28 @@ void armemu_dp(struct arm_state *as, unsigned int iw) {
 
     switch (opcode) {
         case dp_mov:
-            armemu_mov(as, rd, src2);
+            armemu_mov(as, ic, rd, src2);
             break;
         case dp_add:
-            armemu_add(as, rd, rn, src2);
+            armemu_add(as, ic, rd, rn, src2);
             break;
         case dp_sub:
-            armemu_sub(as, rd, rn, src2);
+            armemu_sub(as, ic, rd, rn, src2);
             break;
         case dp_cmp:
-            armemu_cmp(as, set, rn, src2);
+            armemu_cmp(as, ic, set, rn, src2);
             break;
         case dp_mvn:
-            armemu_mvn(as, rd, src2);
+            armemu_mvn(as, ic, rd, src2);
             break;
         case dp_cmn:
-            armemu_cmn(as, set, rn, src2);
+            armemu_cmn(as, ic, set, rn, src2);
     }
 
     as->regs[PC] += 4;
 }
 
-void armemu_mem(struct arm_state *as, unsigned int iw) {
+void armemu_mem(struct arm_state *as, struct instruction_count *ic, unsigned int iw) {
     unsigned int i, b, l;
     unsigned int rn, rd, rm, sh, shamt5, imm12, src2;
 
@@ -368,44 +392,54 @@ void armemu_mem(struct arm_state *as, unsigned int iw) {
         sh = (iw >> 5) & 0b11;
         shamt5 = (iw >> 7) & 0b11111;
         src2 = mem_shift(as->regs[rm], sh, shamt5);
+        update_regs_count(ic, 0, rm);
     }
 
     if (l == 0b1) {
-        armemu_ldr(as, b, rn, rd, src2);
+        armemu_ldr(as, ic, b, rn, rd, src2);
     }
     else {
-        armemu_str(as, rn, rd, src2);
+        armemu_str(as, ic, rn, rd, src2);
     }
 
     as->regs[PC] += 4;
 }
 
-void armemu_brch(struct arm_state *as, unsigned int iw) {
-    unsigned int link, imm24;
+void armemu_brch(struct arm_state *as, struct instruction_count *ic, unsigned int iw) {
+    unsigned int rn, link, imm24;
 
     if (is_bx(iw)) {
-        armemu_bx(as);
+        rn = iw & 0xF;
+        armemu_bx(as, ic, rn);
     }
     else {
         link = (iw >> 24) & 0b1;
         imm24 = iw & 0xFFFFFF;
-        armemu_b(as, imm24, link);
+        armemu_b(as, ic, imm24, link);
     }
 }
 
-void armemu_mov(struct arm_state *as, unsigned int rd, unsigned int src2) {
+void armemu_mov(struct arm_state *as, struct instruction_count *ic, unsigned int rd, unsigned int src2) {
     as->regs[rd] = src2;
+    update_regs_count(ic, 1, rd);
 }
 
-void armemu_add(struct arm_state *as, unsigned int rd, unsigned int rn, unsigned int src2) {
+void armemu_add(struct arm_state *as, struct instruction_count *ic,
+                unsigned int rd, unsigned int rn, unsigned int src2) {
     as->regs[rd] = as->regs[rn] + src2;
+    update_regs_count(ic, 1, rd);
+    update_regs_count(ic, 0, rn);
 }
 
-void armemu_sub(struct arm_state *as, unsigned int rd, unsigned int rn, unsigned int src2) {
+void armemu_sub(struct arm_state *as, struct instruction_count *ic,
+                unsigned int rd, unsigned int rn, unsigned int src2) {
     as->regs[rd] = as->regs[rn] - src2;
+    update_regs_count(ic, 1, rd);
+    update_regs_count(ic, 0, rn);
 }
 
-void armemu_cmp(struct arm_state *as, unsigned int set, unsigned int rn, unsigned int src2) {
+void armemu_cmp(struct arm_state *as, struct instruction_count *ic,
+                unsigned int set, unsigned int rn, unsigned int src2) {
     unsigned int n, z, v;
     unsigned int msb_rn, msb_src2, cpsr;
     
@@ -426,13 +460,18 @@ void armemu_cmp(struct arm_state *as, unsigned int set, unsigned int rn, unsigne
         cpsr = (n << 3) + (z << 2) + v;
         as->cpsr = cpsr;
     }
+
+    update_regs_count(ic, 0, rn);
 }
 
-void armemu_mvn(struct arm_state *as, unsigned int rd, unsigned int src2) {
+void armemu_mvn(struct arm_state *as, struct instruction_count *ic,
+                unsigned int rd, unsigned int src2) {
     as->regs[rd] = ~(src2);
+    update_regs_count(ic, 1, rd);
 }
 
-void armemu_cmn(struct arm_state *as, unsigned int set, unsigned int rn, unsigned int src2) {
+void armemu_cmn(struct arm_state *as, struct instruction_count *ic,
+                unsigned int set, unsigned int rn, unsigned int src2) {
     unsigned int n, z, v;
     unsigned int msb_rn, msb_src2, cpsr;
     
@@ -452,6 +491,8 @@ void armemu_cmn(struct arm_state *as, unsigned int set, unsigned int rn, unsigne
         cpsr = (n << 3) + (z << 2) + v;
         as->cpsr = cpsr;
     }
+
+    update_regs_count(ic, 0, rn);
 }
 
 bool is_bx(unsigned int iw) {
@@ -462,21 +503,18 @@ bool is_bx(unsigned int iw) {
     return (bx_code == 0b000100101111111111110001);
 }
 
-void armemu_bx(struct arm_state *as) {
-    unsigned int iw;
-    unsigned int rn;
-
-    iw = *((unsigned int *) as->regs[PC]);
-    rn = iw & 0xF;
-
+void armemu_bx(struct arm_state *as, struct instruction_count *ic, unsigned int rn) {
     as->regs[PC] = as->regs[rn];
+    update_regs_count(ic, 0, rn);
 }
 
-void armemu_b(struct arm_state *as, unsigned int imm24, unsigned int link) {
+void armemu_b(struct arm_state *as, struct instruction_count *ic,
+              unsigned int imm24, unsigned int link) {
     unsigned int msb, offset;
 
     if (link == 0b1) {
         as->regs[LR] = as->regs[PC] + 4;
+        update_regs_count(ic, 1, LR);
     }
     
     msb = (imm24 >> 23) & 0b1;
@@ -488,14 +526,18 @@ void armemu_b(struct arm_state *as, unsigned int imm24, unsigned int link) {
     as->regs[PC] += offset;
 }
 
-void armemu_str(struct arm_state *as, unsigned int rn, unsigned int rd, unsigned int src2) {
+void armemu_str(struct arm_state *as, struct instruction_count *ic,
+                unsigned int rn, unsigned int rd, unsigned int src2) {
     unsigned int *address;
 
     address = (unsigned int *) (as->regs[rn] + src2);
     *address = as->regs[rd];
+
+    update_regs_count(ic, 1, rn);
+    update_regs_count(ic, 0, rd);
 }
 
-void armemu_ldr(struct arm_state *as, unsigned int b,
+void armemu_ldr(struct arm_state *as, struct instruction_count *ic, unsigned int b,
                 unsigned int rn, unsigned int rd, unsigned int src2) {
     unsigned int *src;
 
@@ -507,4 +549,7 @@ void armemu_ldr(struct arm_state *as, unsigned int b,
     else {
         as->regs[rd] = *src;
     }
+
+    update_regs_count(ic, 0, rn);
+    update_regs_count(ic, 1, rd);
 }
