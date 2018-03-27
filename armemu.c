@@ -93,19 +93,19 @@ void armemu_str(struct arm_state *, struct instruction_count *, unsigned int, un
 void armemu_ldr(struct arm_state *, struct instruction_count *, unsigned int, unsigned int, unsigned int, unsigned int);
 
 int main(int argc, char **argv) {
-    printf("***********************Sum array***********************\n");
+    printf("************************Sum array***********************\n");
     test_sum_array();
 
-    printf("***********************Find max************************\n");
+    printf("************************Find max************************\n");
     test_find_max();
 
-    printf("***********************Fib iter************************\n");
+    printf("************************Fib iter************************\n");
     test_fib_iter();
 
-    printf("***********************Fib rec*************************\n");
+    printf("************************Fib rec*************************\n");
     test_fib_rec();
 
-    printf("***********************Find str************************\n");
+    printf("************************Find str************************\n");
     test_find_str();
     
     return 0;
@@ -138,9 +138,9 @@ void test_sum_array() {
     for (i = 0; i < n; i++) {
         array4[i] = i + 1;
     }
-    /*result = run(&as, &ic, (unsigned int *) sum_array_s, (unsigned int) array4, n, 0, 0);
+    result = run(&as, &ic, (unsigned int *) sum_array_s, (unsigned int) array4, n, 0, 0);
     printf("sum_array_s({1, 2, ..., 999, 1000}, %d) = %d\n", n, result);
-    print_detail(&as, &ic);*/
+    print_detail(&as, &ic);
 }
 
 void test_find_max() {
@@ -170,10 +170,9 @@ void test_find_max() {
     for (i = 0; i < n; i++) {
         array4[i] = i + 1;
     }
-    /*
     result = run(&as, &ic, (unsigned int *) find_max_s, (unsigned int) array4, n, 0, 0);
     printf("find_max_s({1, 2, ..., 999, 1000}, %d) = %d\n", n, result);
-    print_detail(&as, &ic);*/
+    print_detail(&as, &ic);
 }
 
 void test_fib_iter() {
