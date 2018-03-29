@@ -39,7 +39,7 @@ struct arm_state {
 };
 
 struct instruction_count {
-	int exec_count;
+    int exec_count;
     int dp_count;
     int dp_taken;
     int dp_not_taken;
@@ -193,7 +193,7 @@ void test_find_max() {
     printf("[armemu] find_max_s({1, 4, 3, 2}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 
-	//array2
+    //array2
     clock_gettime(CLOCK_REALTIME, ic.native_start);
     result = find_max_s(array2, n);
     clock_gettime(CLOCK_REALTIME, ic.native_finish);
@@ -234,10 +234,10 @@ void test_fib_iter() {
 
     n = 20;
     for (i = 1; i <= n; i++) {
-    	clock_gettime(CLOCK_REALTIME, ic.native_start);
-	    result = fib_iter_s(n);
-	    clock_gettime(CLOCK_REALTIME, ic.native_finish);
-	    printf("[native] fib_iter_s(%d) = %d\n", i, result);
+        clock_gettime(CLOCK_REALTIME, ic.native_start);
+        result = fib_iter_s(n);
+        clock_gettime(CLOCK_REALTIME, ic.native_finish);
+        printf("[native] fib_iter_s(%d) = %d\n", i, result);
         result = run(&as, &ic, (unsigned int *) fib_iter_s, i, 0, 0, 0);
         printf("[armemu] fib_iter_s(%d) = %d\n", i, result);
         print_detail(&as, &ic);
@@ -252,10 +252,10 @@ void test_fib_rec() {
 
     n = 20;
     for(i = 1; i <= n; i++) {
-    	clock_gettime(CLOCK_REALTIME, ic.native_start);
-	    result = fib_rec_s(n);
-	    clock_gettime(CLOCK_REALTIME, ic.native_finish);
-	    printf("[native] fib_rec_s(%d) = %d\n", i, result);
+        clock_gettime(CLOCK_REALTIME, ic.native_start);
+        result = fib_rec_s(n);
+        clock_gettime(CLOCK_REALTIME, ic.native_finish);
+        printf("[native] fib_rec_s(%d) = %d\n", i, result);
         result = run(&as, &ic, (unsigned int *) fib_rec_s, i, 0, 0, 0);
         printf("[armemu] fib_rec_s(%d) = %d\n", i, result);
         print_detail(&as, &ic);
@@ -381,11 +381,11 @@ void instruction_count_print(struct instruction_count *ic) {
     printf("\n*Instruction counts:\n");
     printf("Total instruction executed: %d\n", ic->exec_count);
     printf("Data processing: %d (taken: %d, not-taken: %d)\n",
-    	ic->dp_count, ic->dp_taken, ic->dp_not_taken);
+        ic->dp_count, ic->dp_taken, ic->dp_not_taken);
     printf("Memory: %d (taken: %d, not-taken: %d)\n",
-    	ic->mem_count, ic->mem_taken, ic->mem_not_taken);
+        ic->mem_count, ic->mem_taken, ic->mem_not_taken);
     printf("Branches: %d (taken: %d, not-taken: %d)\n",
-    	ic->brch_count, ic->brch_taken, ic->brch_not_taken);
+        ic->brch_count, ic->brch_taken, ic->brch_not_taken);
 }
 
 void register_count_print(struct instruction_count *ic) {
@@ -437,7 +437,7 @@ void time_spent_print(struct instruction_count *ic) {
     long long s, ns;
     double total;
     
-	printf("\n*Time spent:\n");
+    printf("\n*Time spent:\n");
 
     //native
     s = ic->native_finish.tv_sec - ic->native_start.tv_sec;
@@ -524,8 +524,8 @@ bool check_cond(struct arm_state *as, unsigned int iw) {
 }
 
 void update_instruction_count(struct instruction_count *ic, unsigned int type, bool exec) {
-	if (exec) {
-    	ic->exec_count += 1;
+    if (exec) {
+        ic->exec_count += 1;
     }
 
     if (type == op_dp) {
