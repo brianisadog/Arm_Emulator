@@ -39,15 +39,22 @@ struct arm_state {
 };
 
 struct instruction_count {
+	int exec_count;
     int dp_count;
+    int dp_taken;
+    int dp_not_taken;
     int mem_count;
+    int mem_taken;
+    int mem_not_taken;
     int brch_count;
     int brch_taken;
     int brch_not_taken;
     int regs_read[REG_NUM];
     int regs_write[REG_NUM];
-    struct timespec start;
-    struct timespec finish;
+    struct timespec native_start;
+    struct timespec native_finish;
+    struct timespec armemu_start;
+    struct timespec armemu_finish;
 };
 
 int sum_array_s(int *, int);
@@ -122,24 +129,46 @@ void test_sum_array() {
     int array4[1000];
     
     n = 4;
+
+    //array1
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = sum_array_s(array1, n);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] sum_array_s({1, 2, 3, 4}, %d) = %d\n", n, result);
     result = run(&as, &ic, (unsigned int *) sum_array_s, (unsigned int) array1, n, 0, 0);
-    printf("sum_array_s({1, 2, 3, 4}, %d) = %d\n", n, result);
+    printf("[armemu] sum_array_s({1, 2, 3, 4}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 
+    //array2
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = sum_array_s(array2, n);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] sum_array_s({-1, -2, -3, -4}, %d) = %d\n", n, result);
     result = run(&as, &ic, (unsigned int *) sum_array_s, (unsigned int) array2, n, 0, 0);
-    printf("sum_array_s({-1, -2, -3, -4}, %d) = %d\n", n, result);
+    printf("[armemu] sum_array_s({-1, -2, -3, -4}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 
+    //array3
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = sum_array_s(array3, n);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] sum_array_s({-1, 0, 0, 1}, %d) = %d\n", n, result);
     result = run(&as, &ic, (unsigned int *) sum_array_s, (unsigned int) array3, n, 0, 0);
-    printf("sum_array_s({-1, 0, 0, 1}, %d) = %d\n", n, result);
+    printf("[armemu] sum_array_s({-1, 0, 0, 1}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 
     n = 1000;
     for (i = 0; i < n; i++) {
         array4[i] = i + 1;
     }
+
+    //array4
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = sum_array_s(array4, n);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] sum_array_s({1, 2, ..., 999, 1000}, %d) = %d\n", n, result);
     result = run(&as, &ic, (unsigned int *) sum_array_s, (unsigned int) array4, n, 0, 0);
-    printf("sum_array_s({1, 2, ..., 999, 1000}, %d) = %d\n", n, result);
+    printf("[armemu] sum_array_s({1, 2, ..., 999, 1000}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 }
 
@@ -154,24 +183,46 @@ void test_find_max() {
     int array4[1000];
 
     n = 4;
+
+    //array1
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = find_max_s(array1, n);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] find_max_s({1, 4, 3, 2}, %d) = %d\n", n, result);
     result = run(&as, &ic, (unsigned int *) find_max_s, (unsigned int) array1, n, 0, 0);
-    printf("find_max_s({1, 4, 3, 2}, %d) = %d\n", n, result);
+    printf("[armemu] find_max_s({1, 4, 3, 2}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 
+	//array2
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = find_max_s(array2, n);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] find_max_s({-3, -2, -1, -4}, %d) = %d\n", n, result);
     result = run(&as, &ic, (unsigned int *) find_max_s, (unsigned int) array2, n, 0, 0);
-    printf("find_max_s({-3, -2, -1, -4}, %d) = %d\n", n, result);
+    printf("[armemu] find_max_s({-3, -2, -1, -4}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 
+    //array3
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = find_max_s(array3, n);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] find_max_s({-1, 0, -2, 0}, %d) = %d\n", n, result);
     result = run(&as, &ic, (unsigned int *) find_max_s, (unsigned int) array3, n, 0, 0);
-    printf("find_max_s({-1, 0, -2, 0}, %d) = %d\n", n, result);
+    printf("[armemu] find_max_s({-1, 0, -2, 0}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 
     n = 1000;
     for (i = 0; i < n; i++) {
         array4[i] = i + 1;
     }
+
+    //array4
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = find_max_s(array4, n);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] find_max_s({1, 2, ..., 999, 1000}, %d) = %d\n", n, result);
     result = run(&as, &ic, (unsigned int *) find_max_s, (unsigned int) array4, n, 0, 0);
-    printf("find_max_s({1, 2, ..., 999, 1000}, %d) = %d\n", n, result);
+    printf("[armemu] find_max_s({1, 2, ..., 999, 1000}, %d) = %d\n", n, result);
     print_detail(&as, &ic);
 }
 
@@ -183,8 +234,12 @@ void test_fib_iter() {
 
     n = 20;
     for (i = 1; i <= n; i++) {
+    	clock_gettime(CLOCK_REALTIME, ic.native_start);
+	    result = fib_iter_s(n);
+	    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+	    printf("[native] fib_iter_s(%d) = %d\n", i, result);
         result = run(&as, &ic, (unsigned int *) fib_iter_s, i, 0, 0, 0);
-        printf("fib_iter_s(%d) = %d\n", i, result);
+        printf("[armemu] fib_iter_s(%d) = %d\n", i, result);
         print_detail(&as, &ic);
     }
 }
@@ -197,8 +252,12 @@ void test_fib_rec() {
 
     n = 20;
     for(i = 1; i <= n; i++) {
+    	clock_gettime(CLOCK_REALTIME, ic.native_start);
+	    result = fib_rec_s(n);
+	    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+	    printf("[native] fib_rec_s(%d) = %d\n", i, result);
         result = run(&as, &ic, (unsigned int *) fib_rec_s, i, 0, 0, 0);
-        printf("fib_rec_s(%d) = %d\n", i, result);
+        printf("[armemu] fib_rec_s(%d) = %d\n", i, result);
         print_detail(&as, &ic);
     }
 }
@@ -211,23 +270,39 @@ void test_find_str() {
     s = "Computer Science is actually art!";
 
     sub = "art";
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = find_str_s(s, sub);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
     result = run(&as, &ic, (unsigned int *) find_str_s, (unsigned int) s, (unsigned int) sub, 0, 0);
-    printf("find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
+    printf("[armemu] find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
     print_detail(&as, &ic);
 
     sub = "s actua";
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = find_str_s(s, sub);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
     result = run(&as, &ic, (unsigned int *) find_str_s, (unsigned int) s, (unsigned int) sub, 0, 0);
-    printf("find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
+    printf("[armemu] find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
     print_detail(&as, &ic);
 
     sub = "Computer Science";
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = find_str_s(s, sub);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
     result = run(&as, &ic, (unsigned int *) find_str_s, (unsigned int) s, (unsigned int) sub, 0, 0);
-    printf("find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
+    printf("[armemu] find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
     print_detail(&as, &ic);
 
     sub = "art?";
+    clock_gettime(CLOCK_REALTIME, ic.native_start);
+    result = find_str_s(s, sub);
+    clock_gettime(CLOCK_REALTIME, ic.native_finish);
+    printf("[native] find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
     result = run(&as, &ic, (unsigned int *) find_str_s, (unsigned int) s, (unsigned int) sub, 0, 0);
-    printf("find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
+    printf("[armemu] find_str_s(\"%s\", \"%s\") = %d\n", s, sub, result);
     print_detail(&as, &ic);
 }
 
@@ -237,8 +312,9 @@ unsigned int run(struct arm_state *as, struct instruction_count *ic, unsigned in
 
     arm_state_init(as, (unsigned int) func, arg0, arg1, arg2, arg3);
     instruction_count_init(ic);
+    clock_gettime(CLOCK_REALTIME, &ic->armemu_start);
     result = armemu(as, ic);
-    clock_gettime(CLOCK_REALTIME, &ic->finish);
+    clock_gettime(CLOCK_REALTIME, &ic->armemu_finish);
 
     return result;
 }
@@ -268,6 +344,7 @@ void arm_state_init(struct arm_state *as, unsigned int func, unsigned int reg0,
 void instruction_count_init(struct instruction_count *ic) {
     int i;
 
+    ic->exec_count = 0;
     ic->dp_count = 0;
     ic->mem_count = 0;
     ic->brch_count = 0;
@@ -281,8 +358,6 @@ void instruction_count_init(struct instruction_count *ic) {
 
     ic->regs_read[PC] += 1;
     ic->regs_write[PC] += 1; //every test contains with read/write PC
-
-    clock_gettime(CLOCK_REALTIME, &ic->start);
 }
 
 void print_detail(struct arm_state *as, struct instruction_count *ic) {
@@ -304,9 +379,13 @@ void arm_state_print(struct arm_state *as) {
 
 void instruction_count_print(struct instruction_count *ic) {
     printf("\n*Instruction counts:\n");
-    printf("Data processing: %d\n", ic->dp_count);
-    printf("Memory: %d\n", ic->mem_count);
-    printf("Branches: %d (taken: %d, not-taken: %d)\n", ic->brch_count, ic->brch_taken, ic->brch_not_taken);
+    printf("Total instruction executed: %d\n", ic->exec_count);
+    printf("Data processing: %d (taken: %d, not-taken: %d)\n",
+    	ic->dp_count, ic->dp_taken, ic->dp_not_taken);
+    printf("Memory: %d (taken: %d, not-taken: %d)\n",
+    	ic->mem_count, ic->mem_taken, ic->mem_not_taken);
+    printf("Branches: %d (taken: %d, not-taken: %d)\n",
+    	ic->brch_count, ic->brch_taken, ic->brch_not_taken);
 }
 
 void register_count_print(struct instruction_count *ic) {
@@ -358,12 +437,20 @@ void time_spent_print(struct instruction_count *ic) {
     long long s, ns;
     double total;
     
-    s = ic->finish.tv_sec - ic->start.tv_sec;
-    ns = ic->finish.tv_nsec - ic->start.tv_nsec;
+	printf("\n*Time spent:\n");
+
+    //native
+    s = ic->native_finish.tv_sec - ic->native_start.tv_sec;
+    ns = ic->native_finish.tv_nsec - ic->native_start.tv_nsec;
     total = (double) s + (double) ns / (double) BILLION;
-    
-    printf("\n*Time spent:\n");
-    printf("%lf seconds\n", total);
+    printf("[native] %lf seconds\n", total);
+
+    //armemu
+    s = ic->armemu_finish.tv_sec - ic->armemu_start.tv_sec;
+    ns = ic->armemu_finish.tv_nsec - ic->armemu_start.tv_nsec;
+    total = (double) s + (double) ns / (double) BILLION;
+    printf("[armemu] %lf seconds\n", total);
+
     printf("--------------------------------------------------------\n\n");
 }
 
@@ -437,11 +524,29 @@ bool check_cond(struct arm_state *as, unsigned int iw) {
 }
 
 void update_instruction_count(struct instruction_count *ic, unsigned int type, bool exec) {
+	if (exec) {
+    	ic->exec_count += 1;
+    }
+
     if (type == op_dp) {
         ic->dp_count += 1;
+
+        if (exec) {
+            ic->dp_taken += 1;
+        }
+        else {
+            ic->dp_not_taken += 1;
+        }
     }
     else if (type == op_mem) {
         ic->mem_count += 1;
+
+        if (exec) {
+            ic->mem_taken += 1;
+        }
+        else {
+            ic->mem_not_taken += 1;
+        }
     }
     else if (type == op_brch) {
         ic->brch_count += 1;
