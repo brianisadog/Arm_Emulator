@@ -528,9 +528,7 @@ bool check_cond(struct arm_state *as, unsigned int iw) {
 }
 
 void update_instruction_count(struct instruction_count *ic, unsigned int type, bool exec) {
-    if (exec) {
-        ic->exec_count += 1;
-    }
+    ic->exec_count += 1;
 
     if (type == op_dp) {
         ic->dp_count += 1;
